@@ -1,0 +1,33 @@
+a {
+    color: #dc3545;
+    text-decoration: none;
+    background-color: transparent;
+}
+
+.page-item.active .page-link {
+    z-index: 1;
+    color: #FFFFFF;
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.app-header {
+    border-bottom: 1px solid rgba(0, 40, 100, 0.12);
+    background-color: #dc3545 !important;
+}
+
+.sidebar.sidebar-pills .nav-link.active,
+.sidebar.sidebar-pills .nav-link:hover {
+    color: #dc3545 !important;
+    /*font-weight: 500;*/
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.sidebar.sidebar-pills .nav-link.active .nav-icon,
+.sidebar.sidebar-pills .nav-link:hover .nav-icon {
+    color: #dc3545 !important;
+}
+
+.navbar-color.app-header .navbar-brand {
+    color: #FFFFFF;
+}

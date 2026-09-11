@@ -1,0 +1,1 @@
+<script src="{{ asset('libs/apexcharts/apexcharts.js') }}"></script>

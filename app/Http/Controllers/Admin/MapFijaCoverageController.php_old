@@ -1,0 +1,1133 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use AMovil\Modules\PsoModules\Domain\PsoModuleRepository;
+use AMovil\Shared\Exports\Domain\Writer;
+use AMovil\Shared\Exports\Domain\WriterType;
+use App\Facads\ODB;
+use DateTime;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class MapFijaCoverageController
+{
+    private $configRepository;
+    private $kpi_config = [
+		["ID" => 1, "NAME" => "kpi_ocupacion", "LABEL" => "Penetración %", "GRAPH" => false],
+		[
+			"ID" => 2,
+			"NAME" => "kpi_velocidad_mbps_avg",
+			"LABEL" => "Velocidad Mpbs",
+			"EXTRA_GRAPH_KPIS" => ["4"],
+			// "DESCRIPTION" => "Descripcion",
+			"COLOR_RANGE" => [
+				['COLOR' => '#11BD00', 'CONDITION' => '0 <= KPI && KPI <= 30'],
+				['COLOR' => '#3CD5A9', 'CONDITION' => '30 <= KPI && KPI <= 60'],
+				['COLOR' => '#11ddd0', 'CONDITION' => '60 < KPI && KPI <= 80'],
+				['COLOR' => '#0079B2', 'CONDITION' => '80 < KPI && KPI <= 100'],
+				['COLOR' => '#588AC4', 'CONDITION' => '100 < KPI && KPI <= 150'],
+				['COLOR' => '#6A46E4', 'CONDITION' => '150 < KPI'],
+			]
+		],
+		//["ID" => 3, "NAME" => "kpi_calidad", "LABEL" => "Calidad QoE", "GRAPH" => true],
+		//["ID" => 4, "NAME" => "kpi_cantidad_reclamos", "LABEL" => "Reclamos", "GRAPH" => true],
+		//["ID" => 5, "NAME" => "KPI_DISPONIBILIDAD", "LABEL" => "Disponibilidad", "GRAPH" => false],
+		[
+			"ID" => 6,
+			"NAME" => "kpi_clientes_nuevos",
+			"LABEL" => "Clientes nuevos",
+			"GRAPH" => false,
+			"GRAPH_KPIS" => ["kpi_clientes_nuevos", "kpi_clientes_bajas", "kpi_cliente_total", "kpi_clientes_suspendidos"],
+			"COLOR_RANGE" => [
+				//['COLOR' => '#F6D745', 'CONDITION' => '0 < KPI && KPI < 50'],
+				//['COLOR' => '#9ACE9C', 'CONDITION' => '0 < KPI && KPI <= 5'],
+				//['COLOR' => '#72BA74', 'CONDITION' => '0 < KPI && KPI <= 5'],
+				//['COLOR' => '#009432', 'CONDITION' => '5 < KPI'],
+
+				['COLOR' => '#EC2B1A', 'CONDITION' => '0 <= KPI && KPI <= 1'],
+				['COLOR' => '#FF9557', 'CONDITION' => '1 < KPI && KPI <= 3'],
+				['COLOR' => '#FFB800', 'CONDITION' => '3 < KPI && KPI <= 5'],
+				['COLOR' => '#ffd300', 'CONDITION' => '5 < KPI && KPI <= 7'],
+				['COLOR' => '#F7F700', 'CONDITION' => '7 < KPI && KPI <= 10'],
+				//['COLOR' => '#77DD77', 'CONDITION' => '20 < KPI && KPI <= 25'],
+				//['COLOR' => '#6BB323', 'CONDITION' => '25 < KPI && KPI <= 30'],
+				['COLOR' => '#06500C', 'CONDITION' => '10 < KPI'],
+			]
+		],
+		[
+			"ID" => 7,
+			"NAME" => "kpi_clientes_bajas",
+			"LABEL" => "Clientes Bajas",
+			"GRAPH" => false,
+			"GRAPH_KPIS" => ["kpi_clientes_nuevos", "kpi_clientes_bajas", "kpi_cliente_total", "kpi_clientes_suspendidos"],
+			"COLOR_RANGE" => [
+				['COLOR' => '#44A344', 'CONDITION' => 'KPI == 0'],
+				['COLOR' => '#F7F700', 'CONDITION' => '0 < KPI && KPI <= 5'],
+				['COLOR' => '#ffd300', 'CONDITION' => '5 < KPI && KPI <= 10'],
+				['COLOR' => '#FFB800', 'CONDITION' => '10 < KPI && KPI <= 15'],
+				['COLOR' => '#FF9557', 'CONDITION' => '15 < KPI && KPI <= 20'],
+				['COLOR' => '#E15616', 'CONDITION' => '20 < KPI && KPI <= 25'],
+				['COLOR' => '#EA2027', 'CONDITION' => '25 < KPI && KPI <= 30'],
+				['COLOR' => '#570000', 'CONDITION' => '30 < KPI'],
+			]
+		],
+		[
+			"ID" => 8,
+			"NAME" => "kpi_clientes_suspendidos",
+			"LABEL" => "Clientes suspendidos",
+			"GRAPH" => false,
+			"GRAPH_KPIS" => ["kpi_clientes_nuevos", "kpi_clientes_bajas", "kpi_cliente_total", "kpi_clientes_suspendidos"],
+			"COLOR_RANGE" => [
+				['COLOR' => '#44A344', 'CONDITION' => 'KPI == 0'],
+				['COLOR' => '#ffd300', 'CONDITION' => '0 < KPI && KPI <= 10'],
+				['COLOR' => '#F3661B', 'CONDITION' => '10 < KPI && KPI <= 20'],
+				['COLOR' => '#EA2027', 'CONDITION' => '20 < KPI'],
+			]
+		],
+		[
+			"ID" => 9,
+			"NAME" => "kpi_cliente_total",
+			"LABEL" => "Clientes total",
+			"GRAPH" => false,
+			"GRAPH_KPIS" => ["kpi_clientes_nuevos", "kpi_clientes_bajas", "kpi_cliente_total", "kpi_clientes_suspendidos"],
+			"COLOR_RANGE" => [
+				['COLOR' => '#F6D745', 'CONDITION' => '0 < KPI && KPI < 50'],
+				['COLOR' => '#9ACE9C', 'CONDITION' => '50 < KPI && KPI <= 100'],
+				['COLOR' => '#72BA74', 'CONDITION' => '100 < KPI && KPI <= 150'],
+				['COLOR' => '#009432', 'CONDITION' => '150 < KPI'],
+			]
+		],
+		[
+			"ID" => 10,
+			"NAME" => "kpi_velocidad_maxima",
+			"LABEL" => "Cantidad velocidad maxima",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				['COLOR' => '#44A344', 'CONDITION' => 'KPI == 0'],
+				['COLOR' => '#ffd300', 'CONDITION' => '0 < KPI && KPI <= 10'],
+				['COLOR' => '#F3661B', 'CONDITION' => '10 < KPI && KPI <= 20'],
+				['COLOR' => '#EA2027', 'CONDITION' => '20 < KPI'],
+			]
+		],
+		[
+			"ID" => 11,
+			"NAME" => "kpi_cant_autosaturados",
+			"LABEL" => "Cantidad autosaturados",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				['COLOR' => '#44A344', 'CONDITION' => 'KPI == 0'],
+				['COLOR' => '#ffd300', 'CONDITION' => '0 < KPI && KPI <= 10'],
+				['COLOR' => '#F3661B', 'CONDITION' => '10 < KPI && KPI <= 20'],
+				['COLOR' => '#EA2027', 'CONDITION' => '20 < KPI && KPI <= 30'],
+				['COLOR' => '#570000', 'CONDITION' => '30 < KPI'],
+			]
+		],
+		[
+			"ID" => 12,
+			"NAME" => "kpi_churn",
+			"LABEL" => "Churn %",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				/*['COLOR' => '#44A344', 'CONDITION' => 'KPI == 0'],
+				['COLOR' => '#ffd300', 'CONDITION' => '0 < KPI && KPI <= 1'],
+				['COLOR' => '#F3661B', 'CONDITION' => '1 < KPI && KPI <= 2'],
+				['COLOR' => '#EA2027', 'CONDITION' => '2 < KPI && KPI <= 3'],
+				['COLOR' => '#570000', 'CONDITION' => '3 < KPI && KPI <= 4'],
+				['COLOR' => '#570000', 'CONDITION' => '4 < KPI && KPI <= 5'],
+				['COLOR' => '#570000', 'CONDITION' => '5 < KPI && KPI <= 6'],
+				['COLOR' => '#570000', 'CONDITION' => '6 < KPI && KPI <= 7'],
+				['COLOR' => '#570000', 'CONDITION' => '8 < KPI'],*/
+				['COLOR' => '#580aff', 'CONDITION' => 'KPI == 0'],
+				['COLOR' => '#147df5', 'CONDITION' => '0 < KPI && KPI <= 1'],
+				['COLOR' => '#0aff99', 'CONDITION' => '1 < KPI && KPI <= 2'],
+				['COLOR' => '#a1ff0a', 'CONDITION' => '2 < KPI && KPI <= 3'],
+				['COLOR' => '#deff0a', 'CONDITION' => '3 < KPI && KPI <= 4'],
+				['COLOR' => '#ffd300', 'CONDITION' => '4 < KPI && KPI <= 5'],
+				['COLOR' => '#ff8700', 'CONDITION' => '5 < KPI && KPI <= 6'],
+				['COLOR' => '#ff0000', 'CONDITION' => '6 < KPI && KPI <= 7'],
+				['COLOR' => '#570000', 'CONDITION' => '8 < KPI'],
+			]
+		],
+		[
+			"ID" => 13,
+			"NAME" => "kpi_score_den",
+			"LABEL" => "Score",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				['COLOR' => '#C00000', 'CONDITION' => 'KPI < 70'],
+				['COLOR' => '#ED7D31', 'CONDITION' => '70 <= KPI && KPI <= 89'],
+				['COLOR' => '#C5E0B4', 'CONDITION' => '90 <= KPI && KPI <= 99'],
+				['COLOR' => '#44A344', 'CONDITION' => '100 <= KPI'],
+			]
+		],
+		[
+			"ID" => 14,
+			"NAME" => "kpi_porcentaje_suspendidos",
+			"LABEL" => "Suspendidos %",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				['COLOR' => '#44A344', 'CONDITION' => 'KPI == 0'],
+				['COLOR' => '#a1ff0a', 'CONDITION' => '0 < KPI && KPI <= 3'],
+				['COLOR' => '#deff0a', 'CONDITION' => '3 < KPI && KPI <= 5'],
+				['COLOR' => '#ffd300', 'CONDITION' => '5 < KPI && KPI <= 10'],
+				['COLOR' => '#ff8700', 'CONDITION' => '10 < KPI && KPI <= 20'],
+				['COLOR' => '#ff0000', 'CONDITION' => '20 < KPI'],
+			]
+		],
+		[
+			"ID" => 15,
+			"NAME" => "kpi_clientes_nuevos_2m",
+			"LABEL" => "Clientes nuevos 2M",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				['COLOR' => '#EC2B1A', 'CONDITION' => '0 <= KPI && KPI <= 1'],
+				['COLOR' => '#FF9557', 'CONDITION' => '1 < KPI && KPI <= 3'],
+				['COLOR' => '#FFB800', 'CONDITION' => '3 < KPI && KPI <= 5'],
+				['COLOR' => '#ffd300', 'CONDITION' => '5 < KPI && KPI <= 7'],
+				['COLOR' => '#F7F700', 'CONDITION' => '7 < KPI && KPI <= 10'],
+				['COLOR' => '#06500C', 'CONDITION' => '10 < KPI'],
+			]
+		],
+		[
+			"ID" => 16,
+			"NAME" => "kpi_clientes_bajas_2m",
+			"LABEL" => "Clientes Bajas 2M",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				['COLOR' => '#44A344', 'CONDITION' => 'KPI == 0'],
+				['COLOR' => '#F7F700', 'CONDITION' => '0 < KPI && KPI <= 5'],
+				['COLOR' => '#ffd300', 'CONDITION' => '5 < KPI && KPI <= 10'],
+				['COLOR' => '#FFB800', 'CONDITION' => '10 < KPI && KPI <= 15'],
+				['COLOR' => '#FF9557', 'CONDITION' => '15 < KPI && KPI <= 20'],
+				['COLOR' => '#E15616', 'CONDITION' => '20 < KPI && KPI <= 25'],
+				['COLOR' => '#EA2027', 'CONDITION' => '25 < KPI && KPI <= 30'],
+				['COLOR' => '#570000', 'CONDITION' => '30 < KPI'],
+			]
+		],
+		[
+			"ID" => 17,
+			"NAME" => "kpi_mejor_operador",
+			"LABEL" => "Mejor Downstream",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				['COLOR' => '#44A344', 'CONDITION' => 'KPI == 1'],
+				['COLOR' => '#3CD5A9', 'CONDITION' => '2 <= KPI && KPI < 3'],
+				['COLOR' => '#ffd300', 'CONDITION' => '3 <= KPI && KPI < 4'],
+				['COLOR' => '#F3661B', 'CONDITION' => '4 <= KPI && KPI < 5'],
+				['COLOR' => '#EA2027', 'CONDITION' => '5 <= KPI'],
+			]
+		],
+		[
+			"ID" => 18,
+			"NAME" => "kpi_mejor_latencia",
+			"LABEL" => "Mejor Latencia",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				['COLOR' => '#44A344', 'CONDITION' => 'KPI == 1'],
+				['COLOR' => '#3CD5A9', 'CONDITION' => '2 <= KPI && KPI < 3'],
+				['COLOR' => '#ffd300', 'CONDITION' => '3 <= KPI && KPI < 4'],
+				['COLOR' => '#F3661B', 'CONDITION' => '4 <= KPI && KPI < 5'],
+				['COLOR' => '#EA2027', 'CONDITION' => '5 <= KPI'],
+			]
+		],
+		[
+			"ID" => 19,
+			"NAME" => "kpi_latencia_ms",
+			"LABEL" => "Latencia",
+			"GRAPH" => false,
+			"COLOR_RANGE" => [
+				['COLOR' => '#EA2027', 'CONDITION' => 'Latencia-Avg > 80ms'],
+				['COLOR' => '#F3661B', 'CONDITION' => '40ms < Latencia-Avg <= 80ms'],
+				['COLOR' => '#ffd300', 'CONDITION' => '20ms < Latencia-Avg <= 40ms'],
+				['COLOR' => '#3CD5A9', 'CONDITION' => '5ms < Latencia-Avg <=20ms'],
+				['COLOR' => '#44A344', 'CONDITION' => 'Latencia-Avg <= 5ms'],
+			]
+		],
+	];
+	private $detailFieldsByDistribucion = [
+		"1" => [
+			"anio" => ["label" => "Año"],
+			"semana" => ["label" => "Semana"],
+			"departamento" => ["label" => "Departamento"],
+			"ubigeo_dpto" => ["label" => "Ubigeo"],
+			"kpi_ocupacion" => ["label" => "% Penetración"],
+			"kpi_velocidad_mbps_avg" => ["label" => "Velocidad Contratada Mbps"],
+			"kpi_clientes_suspendidos" => ["label" => "# Clientes Suspendidos"],
+			"kpi_cliente_total" => ["label" => "# Clientes totales"],
+			"kpi_cant_autosaturados" => ["label" => "# Autosaturados"],
+			"kpi_velocidad_maxima" => ["label" => "# Velocidad máxima"],
+			"kpi_hhpp_totales" => ["label" => "# HHPP Totales"],
+			"kpi_clientes_nuevos" => ["label" => "# Clientes nuevos"],
+			"kpi_clientes_bajas" => ["label" => "# Clientes bajas"],
+			"kpi_churn" => ["label" => "% Churn"],
+			"kpi_score_den" => ["label" => "% Score"],
+			"kpi_porcentaje_suspendidos" => ["label" => "% Suspendidos"],
+		],
+		"2" => [
+			"anio" => ["label" => "Año"],
+			"semana" => ["label" => "Semana"],
+			"departamento" => ["label" => "Departamento"],
+			"provincia" => ["label" => "Provincia"],
+			"ubigeo_prov" => ["label" => "Ubigeo"],
+			"kpi_ocupacion" => ["label" => "% Penetración"],
+			"kpi_velocidad_mbps_avg" => ["label" => "Velocidad Contratada Mbps"],
+			"kpi_clientes_suspendidos" => ["label" => "# Clientes Suspendidos"],
+			"kpi_cliente_total" => ["label" => "# Clientes totales"],
+			"kpi_cant_autosaturados" => ["label" => "# Autosaturados"],
+			"kpi_velocidad_maxima" => ["label" => "# Velocidad máxima"],
+			"kpi_hhpp_totales" => ["label" => "# HHPP Totales"],
+			"kpi_clientes_nuevos" => ["label" => "# Clientes nuevos"],
+			"kpi_clientes_bajas" => ["label" => "# Clientes bajas"],
+			"kpi_churn" => ["label" => "% Churn"],
+			"kpi_score_den" => ["label" => "% Score"],
+			"kpi_porcentaje_suspendidos" => ["label" => "% Suspendidos"],
+		],
+		"3" => [
+			"anio" => ["label" => "Año"],
+			"semana" => ["label" => "Semana"],
+			"departamento" => ["label" => "Departamento"],
+			"provincia" => ["label" => "Provincia"],
+			"distrito" => ["label" => "Distrito"],
+			"ubigeo" => ["label" => "Ubigeo"],
+			"kpi_ocupacion" => ["label" => "% Penetración"],
+			"kpi_velocidad_mbps_avg" => ["label" => "Velocidad Contratada Mbps"],
+			"kpi_clientes_suspendidos" => ["label" => "# Clientes Suspendidos"],
+			"kpi_cliente_total" => ["label" => "# Clientes totales"],
+			"kpi_cant_autosaturados" => ["label" => "# Autosaturados"],
+			"kpi_velocidad_maxima" => ["label" => "# Velocidad máxima"],
+			"kpi_hhpp_totales" => ["label" => "# HHPP Totales"],
+			"kpi_clientes_nuevos" => ["label" => "# Clientes nuevos"],
+			"kpi_clientes_bajas" => ["label" => "# Clientes bajas"],
+			"kpi_churn" => ["label" => "% Churn"],
+			"kpi_score_den" => ["label" => "% Score"],
+			"kpi_porcentaje_suspendidos" => ["label" => "% Suspendidos"],
+		],
+		"4" => [
+			"anio" => ["label" => "Año"],
+			"semana" => ["label" => "Semana"],
+			"plano" => ["label" => "Plano"],
+			"departamento" => ["label" => "Departamento"],
+			"provincia" => ["label" => "Provincia"],
+			"distrito" => ["label" => "Distrito"],
+			"ubigeo" => ["label" => "Ubigeo"],
+			"tecnologia" => ["label" => "Tecnologia"],
+			"fecha_liberacion" => ["label" => "Fecha liberacion"],
+			"num_competencia" => ["label" => "# Competencia"],
+			"num_interacciones" => [
+				"label" => "# Interacciones",
+				"modal_info" => ["4" => ["table"]]
+			],
+			"kpi_ocupacion" => ["label" => "% Penetración"],
+			"kpi_velocidad_mbps_avg" => ["label" => "# Velocidad Contratada Mbps", "modal_info" => ["4" => ["table"]]],
+			"kpi_clientes_suspendidos" => ["label" => "# Clientes Suspendidos"],
+			"kpi_cliente_total" => ["label" => "# Clientes totales"],
+			"kpi_cant_autosaturados" => ["label" => "# Autosaturados"],
+			"kpi_velocidad_maxima" => ["label" => "# Velocidad máxima"],
+			"kpi_hhpp_totales" => ["label" => "# HHPP Totales"],
+			"kpi_clientes_nuevos" => ["label" => "# Clientes nuevos"],
+			"kpi_clientes_bajas" => ["label" => "# Clientes bajas"],
+			"kpi_churn" => ["label" => "% Churn"],
+			"kpi_score_den" => ["label" => "% Score"],
+			"kpi_porcentaje_suspendidos" => ["label" => "% Suspendidos"],
+			"kpi_clientes_bajas_2m" => ["label" => "# Clientes bajas 2 meses"],
+			"kpi_clientes_nuevos_2m" => ["label" => "# Clientes nuevos 2 meses"],
+			"kpi_mejor_operador" => ["label" => "Ranking velocidad DL"],
+			"kpi_mejor_latencia" => ["label" => "Ranking latencia"],
+			"kpi_latencia_ms" => ["label" => "Latencia"],
+			"ruc10" => ["label" => "RUC 10"],
+			"ruc20" => ["label" => "RUC 20"],
+		],
+	];
+	private $map_filter_by_distribucion;
+	private $graphQueryByDistribucion;
+	private $tableByDistribucion;
+
+    public function __construct(PsoModuleRepository $repository)
+    {
+        $this->configRepository = $repository;
+
+		$this->query_by_distribucion = [
+            '1' => "SELECT ANIO, SEMANA, DEPARTAMENTO,
+				RESULTTIME, UBIGEO_DPTO,
+				ROUND(NVL(CASE WHEN KPI_HHPP_TOTALES = 0 THEN 0 ELSE KPI_CLIENTE_TOTAL/KPI_HHPP_TOTALES END, 0), 4)*100 KPI_OCUPACION,
+				KPI_CLIENTES_SUSPENDIDOS, KPI_CLIENTE_TOTAL, KPI_CANT_AUTOSATURADOS,
+				KPI_VELOCIDAD_MAXIMA, KPI_HHPP_TOTALES, KPI_CLIENTES_NUEVOS, KPI_CLIENTES_BAJAS,
+				ROUND(KPI_NUM_VELOCIDAD_MBPS/KPI_DEN_VELOCIDAD_MBPS, 2) KPI_VELOCIDAD_MBPS_AVG,
+				(
+					select
+						round(100*(case when avg(nvl(kpi_cliente_total,0)) >0 then avg(nvl(kpi_clientes_bajas,0))/avg(nvl(kpi_cliente_total,0)) else 0 end),2) kpi_churn
+					from   (
+						select anio, semana,
+							ubigeo_dpto,
+							sum(nvl(kpi_clientes_bajas,0)) kpi_clientes_bajas,
+							sum(nvl(kpi_cliente_total,0)) kpi_cliente_total
+						from   fija_planos_kpis
+						where
+                        anio <= kpi.anio and semana <= kpi.semana
+                        --anio <= 2022 and semana <= 36
+                        and ubigeo_dpto = kpi.ubigeo_dpto
+                        --and ubigeo_dpto = '04'
+						group by anio, semana, ubigeo_dpto
+                        order by anio desc, semana desc
+                        fetch first 4 rows only
+					) group by ubigeo_dpto
+				) kpi_churn,
+				CASE WHEN KPI_SCORE_DEN = 0 THEN 0 ELSE ROUND(KPI_SCORE_NUM/KPI_SCORE_DEN, 2)*100 END KPI_SCORE_DEN,
+				ROUND(CASE WHEN KPI_CLIENTE_TOTAL = 0 OR KPI_CLIENTE_TOTAL IS NULL THEN 0 ELSE NVL(KPI_CLIENTES_SUSPENDIDOS, 0)/KPI_CLIENTE_TOTAL END, 2)*100 KPI_PORCENTAJE_SUSPENDIDOS
+				FROM
+				(
+					SELECT ANIO, SEMANA, DEPARTAMENTO,
+					MAX(TO_CHAR(FEC_FIN, 'YYYY-MM-DD HH24:MI:SS')) AS RESULTTIME, MAX(UBIGEO_DPTO) AS UBIGEO_DPTO,
+					SUM(KPI_CLIENTES_SUSPENDIDOS) KPI_CLIENTES_SUSPENDIDOS,
+					SUM(KPI_CLIENTE_TOTAL) KPI_CLIENTE_TOTAL, SUM(KPI_CANT_AUTOSATURADOS) KPI_CANT_AUTOSATURADOS,
+					SUM(KPI_VELOCIDAD_MAXIMA) KPI_VELOCIDAD_MAXIMA, SUM(KPI_HHPP_TOTALES) KPI_HHPP_TOTALES,
+					SUM(KPI_CLIENTES_NUEVOS) KPI_CLIENTES_NUEVOS, SUM(KPI_CLIENTES_BAJAS) KPI_CLIENTES_BAJAS,
+					SUM(KPI_NUM_VELOCIDAD_MBPS) KPI_NUM_VELOCIDAD_MBPS, SUM(KPI_DEN_VELOCIDAD_MBPS) KPI_DEN_VELOCIDAD_MBPS,
+					SUM(NVL(KPI_SCORE_DEN, 0)) KPI_SCORE_DEN,
+					SUM(NVL(KPI_SCORE_NUM, 0)) KPI_SCORE_NUM
+					FROM FIJA_PLANOS_KPIS [str_filters]
+					GROUP BY ANIO, SEMANA, DEPARTAMENTO
+				) kpi",
+            '2' => "SELECT ANIO, SEMANA, DEPARTAMENTO, PROVINCIA,
+				RESULTTIME, UBIGEO_PROV,
+				ROUND(NVL(CASE WHEN KPI_HHPP_TOTALES = 0 THEN 0 ELSE KPI_CLIENTE_TOTAL/KPI_HHPP_TOTALES END, 0), 4)*100 KPI_OCUPACION,
+				KPI_CLIENTES_SUSPENDIDOS, KPI_CLIENTE_TOTAL, KPI_CANT_AUTOSATURADOS,
+				KPI_VELOCIDAD_MAXIMA, KPI_HHPP_TOTALES, KPI_CLIENTES_NUEVOS, KPI_CLIENTES_BAJAS,
+				ROUND(KPI_NUM_VELOCIDAD_MBPS/KPI_DEN_VELOCIDAD_MBPS, 2) KPI_VELOCIDAD_MBPS_AVG,
+				(
+					select
+						round(100*(case when avg(nvl(kpi_cliente_total,0)) >0 then avg(nvl(kpi_clientes_bajas,0))/avg(nvl(kpi_cliente_total,0)) else 0 end),2) kpi_churn
+					from   (
+						select anio, semana,
+							ubigeo_prov,
+							sum(nvl(kpi_clientes_bajas,0)) kpi_clientes_bajas,
+							sum(nvl(kpi_cliente_total,0)) kpi_cliente_total
+						from   fija_planos_kpis
+						where
+                        anio <= kpi.anio and semana <= kpi.semana
+                        and ubigeo_prov = kpi.ubigeo_prov
+						group by anio, semana, ubigeo_prov
+                        order by anio desc, semana desc
+                        fetch first 4 rows only
+					) group by ubigeo_prov
+				) kpi_churn,
+				CASE WHEN KPI_SCORE_DEN = 0 THEN 0 ELSE ROUND(KPI_SCORE_NUM/KPI_SCORE_DEN, 2)*100 END KPI_SCORE_DEN,
+				ROUND(CASE WHEN KPI_CLIENTE_TOTAL = 0 OR KPI_CLIENTE_TOTAL IS NULL THEN 0 ELSE NVL(KPI_CLIENTES_SUSPENDIDOS, 0)/KPI_CLIENTE_TOTAL END, 2)*100 KPI_PORCENTAJE_SUSPENDIDOS
+				FROM
+				(
+					SELECT ANIO, SEMANA, DEPARTAMENTO, PROVINCIA,
+					MAX(TO_CHAR(FEC_FIN, 'YYYY-MM-DD HH24:MI:SS')) AS RESULTTIME, MAX(UBIGEO_PROV) AS UBIGEO_PROV,
+					SUM(KPI_CLIENTES_SUSPENDIDOS) KPI_CLIENTES_SUSPENDIDOS,
+					SUM(KPI_CLIENTE_TOTAL) KPI_CLIENTE_TOTAL, SUM(KPI_CANT_AUTOSATURADOS) KPI_CANT_AUTOSATURADOS,
+					SUM(KPI_VELOCIDAD_MAXIMA) KPI_VELOCIDAD_MAXIMA, SUM(KPI_HHPP_TOTALES) KPI_HHPP_TOTALES,
+					SUM(KPI_CLIENTES_NUEVOS) KPI_CLIENTES_NUEVOS, SUM(KPI_CLIENTES_BAJAS) KPI_CLIENTES_BAJAS,
+					SUM(KPI_NUM_VELOCIDAD_MBPS) KPI_NUM_VELOCIDAD_MBPS, SUM(KPI_DEN_VELOCIDAD_MBPS) KPI_DEN_VELOCIDAD_MBPS,
+					SUM(NVL(KPI_SCORE_DEN, 0)) KPI_SCORE_DEN,
+					SUM(NVL(KPI_SCORE_NUM, 0)) KPI_SCORE_NUM
+					FROM FIJA_PLANOS_KPIS [str_filters]
+					GROUP BY ANIO, SEMANA, DEPARTAMENTO, PROVINCIA
+				) kpi",
+            '3' => "SELECT ANIO, SEMANA, DEPARTAMENTO, PROVINCIA, DISTRITO,
+				RESULTTIME, UBIGEO,
+				ROUND(NVL(CASE WHEN KPI_HHPP_TOTALES = 0 THEN 0 ELSE KPI_CLIENTE_TOTAL/KPI_HHPP_TOTALES END, 0), 4)*100 KPI_OCUPACION,
+				KPI_CLIENTES_SUSPENDIDOS, KPI_CLIENTE_TOTAL, KPI_CANT_AUTOSATURADOS,
+				KPI_VELOCIDAD_MAXIMA, KPI_HHPP_TOTALES, KPI_CLIENTES_NUEVOS, KPI_CLIENTES_BAJAS,
+				ROUND(KPI_NUM_VELOCIDAD_MBPS/KPI_DEN_VELOCIDAD_MBPS, 2) KPI_VELOCIDAD_MBPS_AVG,
+				(
+					select
+						round(100*(case when avg(nvl(kpi_cliente_total,0)) >0 then avg(nvl(kpi_clientes_bajas,0))/avg(nvl(kpi_cliente_total,0)) else 0 end),2) kpi_churn
+					from   (
+						select anio, semana,
+							ubigeo,
+							sum(nvl(kpi_clientes_bajas,0)) kpi_clientes_bajas,
+							sum(nvl(kpi_cliente_total,0)) kpi_cliente_total
+						from   fija_planos_kpis
+						where
+                        anio <= kpi.anio and semana <= kpi.semana
+                        and ubigeo = kpi.ubigeo
+						group by anio, semana, ubigeo
+                        order by anio desc, semana desc
+                        fetch first 4 rows only
+					) group by ubigeo
+				) kpi_churn,
+				CASE WHEN KPI_SCORE_DEN = 0 THEN 0 ELSE ROUND(KPI_SCORE_NUM/KPI_SCORE_DEN, 2)*100 END KPI_SCORE_DEN,
+				ROUND(CASE WHEN KPI_CLIENTE_TOTAL = 0 OR KPI_CLIENTE_TOTAL IS NULL THEN 0 ELSE NVL(KPI_CLIENTES_SUSPENDIDOS, 0)/KPI_CLIENTE_TOTAL END, 2)*100 KPI_PORCENTAJE_SUSPENDIDOS
+				FROM
+				(
+					SELECT ANIO, SEMANA, DEPARTAMENTO, PROVINCIA, DISTRITO,
+					MAX(TO_CHAR(FEC_FIN, 'YYYY-MM-DD HH24:MI:SS')) AS RESULTTIME, MAX(substr(UBIGEO, 1, 6)) AS UBIGEO,
+					SUM(KPI_CLIENTES_SUSPENDIDOS) KPI_CLIENTES_SUSPENDIDOS,
+					SUM(KPI_CLIENTE_TOTAL) KPI_CLIENTE_TOTAL, SUM(KPI_CANT_AUTOSATURADOS) KPI_CANT_AUTOSATURADOS,
+					SUM(KPI_VELOCIDAD_MAXIMA) KPI_VELOCIDAD_MAXIMA, SUM(KPI_HHPP_TOTALES) KPI_HHPP_TOTALES,
+					SUM(KPI_CLIENTES_NUEVOS) KPI_CLIENTES_NUEVOS, SUM(KPI_CLIENTES_BAJAS) KPI_CLIENTES_BAJAS,
+					SUM(KPI_NUM_VELOCIDAD_MBPS) KPI_NUM_VELOCIDAD_MBPS, SUM(KPI_DEN_VELOCIDAD_MBPS) KPI_DEN_VELOCIDAD_MBPS,
+					SUM(NVL(KPI_SCORE_DEN, 0)) KPI_SCORE_DEN,
+					SUM(NVL(KPI_SCORE_NUM, 0)) KPI_SCORE_NUM
+					FROM FIJA_PLANOS_KPIS [str_filters]
+					GROUP BY ANIO, SEMANA, DEPARTAMENTO, PROVINCIA, DISTRITO
+				) kpi",
+            '4' => "SELECT a.ANIO, a.SEMANA, TO_CHAR(FEC_FIN, 'YYYY-MM-DD HH24:MI:SS') AS RESULTTIME,
+				a.PLANO, REGION, DEPARTAMENTO, PROVINCIA, DISTRITO, UBIGEO, TECNOLOGIA, TO_CHAR(FECHA_LIBERACION, 'DD/MM/YYYY') AS FECHA_LIBERACION, COMPETENCIA, NUM_COMPETENCIA, NUM_INTERACCIONES, CASE WHEN ROUND(TRUNC(SYSDATE, 'DD') - FECHA_LIBERACION, 0) <= 60 THEN 1 ELSE NULL END FLAG_NEW,
+				ROUND(NVL(CASE WHEN KPI_HHPP_TOTALES IS NULL THEN 0 ELSE KPI_CLIENTE_TOTAL / KPI_HHPP_TOTALES END, 0)*100, 2) AS KPI_OCUPACION,
+				KPI_CLIENTES_SUSPENDIDOS, KPI_CLIENTE_TOTAL, KPI_CANT_AUTOSATURADOS, KPI_VELOCIDAD_MAXIMA, KPI_HHPP_TOTALES,
+				KPI_CLIENTES_NUEVOS, KPI_CLIENTES_BAJAS,
+				--ROUND(KPI_VELOCIDAD_MBPS_AVG, 2) KPI_VELOCIDAD_MBPS_AVG
+				ROUND(KPI_NUM_VELOCIDAD_MBPS/KPI_DEN_VELOCIDAD_MBPS, 2) KPI_VELOCIDAD_MBPS_AVG,
+				ROUND(KPI_CHURN, 2) KPI_CHURN,
+				CASE WHEN NVL(KPI_SCORE_DEN, 0) = 0 THEN 0 ELSE ROUND(KPI_SCORE_NUM/KPI_SCORE_DEN, 2)*100 END KPI_SCORE_DEN,
+				ROUND(CASE WHEN KPI_CLIENTE_TOTAL = 0 OR KPI_CLIENTE_TOTAL IS NULL THEN 0 ELSE NVL(KPI_CLIENTES_SUSPENDIDOS, 0)/KPI_CLIENTE_TOTAL END, 2)*100 KPI_PORCENTAJE_SUSPENDIDOS,
+				kpi_clientes_nuevos_2m,
+				kpi_clientes_bajas_2m,
+				kpi_mejor_operador,
+				kpi_mejor_latencia,
+				kpi_latencia_ms,
+				(select count(*) from GIS_EMP_RUC_20_10 where tipo_ruc='RUC 10 CON NEGOCIO' and (gis_nombre_ftth = a.plano or gis_nombre_hfc = a.plano)) RUC10,
+				(select count(*) from GIS_EMP_RUC_20_10 where tipo_ruc='RUC 20' and (gis_nombre_ftth = a.plano or gis_nombre_hfc = a.plano)) RUC20
+			FROM FIJA_PLANOS_KPIS a
+			LEFT JOIN (SELECT anio, semana, plano, NUM_INTERACCIONES FROM FIJA_RES_PLANOS_SEM) b
+			ON b.anio = a.anio and b.semana = a.semana and b.plano = a.plano
+			[str_filters]",
+        ];
+
+		$this->query_by_distribucion_2 = $this->query_by_distribucion;
+		$this->query_by_distribucion_2['4'] = "SELECT a.ANIO, a.SEMANA, TO_CHAR(FEC_FIN, 'YYYY-MM-DD HH24:MI:SS') AS RESULTTIME,
+			a.PLANO, REGION, DEPARTAMENTO, PROVINCIA, DISTRITO, UBIGEO, TECNOLOGIA, TO_CHAR(FECHA_LIBERACION, 'DD/MM/YYYY') AS FECHA_LIBERACION,
+			COMPETENCIA, NUM_COMPETENCIA, NUM_INTERACCIONES,
+			CASE WHEN ROUND(TRUNC(SYSDATE, 'DD') - FECHA_LIBERACION, 0) <= 30*6 THEN 1 ELSE NULL END FLAG_NEW,
+			ROUND(NVL(CASE WHEN KPI_HHPP_TOTALES IS NULL THEN 0 ELSE KPI_CLIENTE_TOTAL / KPI_HHPP_TOTALES END, 0)*100, 2) AS KPI_OCUPACION,
+			KPI_CLIENTES_SUSPENDIDOS, KPI_CLIENTE_TOTAL, KPI_CANT_AUTOSATURADOS, KPI_VELOCIDAD_MAXIMA, KPI_HHPP_TOTALES,
+			NVL(C.CLIENTES_NUEVOS, KPI_CLIENTES_NUEVOS) KPI_CLIENTES_NUEVOS,
+			NVL(C.CLIENTES_BAJAS, KPI_CLIENTES_BAJAS) KPI_CLIENTES_BAJAS,
+			--ROUND(KPI_VELOCIDAD_MBPS_AVG, 2) KPI_VELOCIDAD_MBPS_AVG
+			ROUND(KPI_NUM_VELOCIDAD_MBPS/KPI_DEN_VELOCIDAD_MBPS, 2) KPI_VELOCIDAD_MBPS_AVG,
+			ROUND(KPI_CHURN, 2) KPI_CHURN,
+			CASE WHEN NVL(KPI_SCORE_DEN, 0) = 0 THEN 0 ELSE ROUND(KPI_SCORE_NUM/KPI_SCORE_DEN, 2)*100 END KPI_SCORE_DEN,
+			ROUND(CASE WHEN KPI_CLIENTE_TOTAL = 0 OR KPI_CLIENTE_TOTAL IS NULL THEN 0 ELSE NVL(KPI_CLIENTES_SUSPENDIDOS, 0)/KPI_CLIENTE_TOTAL END, 2)*100 KPI_PORCENTAJE_SUSPENDIDOS,
+			kpi_clientes_nuevos_2m,
+			kpi_clientes_bajas_2m,
+			kpi_mejor_operador,
+			kpi_mejor_latencia,
+			kpi_latencia_ms,
+			null RUC10,
+			null RUC20
+		FROM FIJA_PLANOS_KPIS a
+		LEFT JOIN (SELECT PLANO PLANO_, CLIENTES_BAJAS, CLIENTES_NUEVOS FROM TEST_FIJA_ACUM_KPI) c
+		ON c.PLANO_ = A.PLANO AND A.ANIO=2022 AND A.SEMANA=36
+		LEFT JOIN (SELECT anio, semana, plano, NUM_INTERACCIONES FROM FIJA_RES_PLANOS_SEM) b
+		ON b.anio = a.anio and b.semana = a.semana and b.plano = a.plano
+		[str_filters]";
+
+		$this->map_filter_by_distribucion = [
+			'1' => [],
+			'2' => [],
+			'3' => [],
+			'4' => [
+				"anio" => "a.anio",
+				"semana" => "a.semana",
+				"plano" => "a.plano",
+			],
+		];
+
+		$this->query_cob_otros_by_distribucion = [
+            '1' => "SELECT PSO.UBIGEO_DPTO, PSO.DEPARTAMENTO
+				FROM ( {$this->query_by_distribucion['1']} ) PSO
+				INNER JOIN PSO_DATA_FIJA_COB_OTROS O
+				ON UPPER(O.DEPARTAMENTO) = UPPER(PSO.DEPARTAMENTO)",
+            '2' => "SELECT PSO.UBIGEO_PROV, PSO.DEPARTAMENTO, PSO.PROVINCIA
+				FROM ( {$this->query_by_distribucion['2']} ) PSO
+				INNER JOIN PSO_DATA_FIJA_COB_OTROS O
+				ON UPPER(O.DEPARTAMENTO) = UPPER(PSO.DEPARTAMENTO) AND UPPER(O.PROVINCIA) = UPPER(PSO.PROVINCIA)",
+            '3' => "SELECT PSO.UBIGEO, PSO.DEPARTAMENTO, PSO.PROVINCIA, PSO.DISTRITO
+				FROM ( {$this->query_by_distribucion['3']} ) PSO
+				INNER JOIN PSO_DATA_FIJA_COB_OTROS O
+				ON UPPER(O.PROVINCIA) = UPPER(PSO.PROVINCIA) AND UPPER(O.DISTRITO) = UPPER(PSO.DISTRITO)",
+            '4' => "SELECT PSO.PLANO, PSO.DEPARTAMENTO, PSO.PROVINCIA, PSO.DISTRITO
+			FROM ( {$this->query_by_distribucion['4']} ) PSO
+			INNER JOIN PSO_DATA_FIJA_COB_OTROS O
+			ON UPPER(O.PROVINCIA) = UPPER(PSO.PROVINCIA) AND UPPER(O.DISTRITO) = UPPER(PSO.DISTRITO)",
+        ];
+
+		$this->graphQueryByDistribucion = [
+			"4" => [
+				"kpi_velocidad_mbps_avg" => [
+					"sql" => "SELECT ANIO, SEMANA, FEC_FIN, VELOCIDAD, SUM(NVL(CANTIDAD, 0)) USUARIOS FROM FIJA_PLANOS_VELOCIDADES
+					WHERE  PLANO = :plano
+					GROUP BY ANIO, SEMANA, FEC_FIN, VELOCIDAD",
+					"seriesConfig" => ["usuarios" => ["label" => "Usuarios"]],
+					"result_time" => "fec_fin",
+					"title" => "Velocidad Mbps"
+				],
+				"num_interacciones" => [
+					"sql" => "SELECT ANIO, SEMANA, FEC_FIN, VELOCIDAD, SUM(NVL(CANTIDAD, 0)) USUARIOS FROM FIJA_PLANOS_VELOCIDADES
+					WHERE  PLANO = :plano
+					GROUP BY ANIO, SEMANA, FEC_FIN, VELOCIDAD",
+					"seriesConfig" => ["usuarios" => ["label" => "Usuarios"]],
+					"result_time" => "fec_fin",
+					"title" => "Velocidad Mbps"
+				]
+			]
+		];
+		$this->tableByDistribucion = [
+			"4" => [
+				"kpi_velocidad_mbps_avg" => [
+					"sql" => "SELECT PLANO, VELOCIDAD, CANTIDAD FROM FIJA_PLANOS_VELOCIDADES
+					WHERE ANIO = 2023 AND SEMANA = 38 AND PLANO = :id ORDER BY 3 DESC",
+					"fields" => [
+						"velocidad" => ["label" => "Velocidad Contratada"],
+						"cantidad" => ["label" => "# Usuarios"],
+					],
+				],
+				"num_interacciones" => [
+					"sql" => "SELECT tipificacion, sum(cant_interac) interacciones, max(plano) plano
+					from   fija_interact_planos
+					where  mes = (SELECT max(mes) from fija_interact_planos)
+					and    plano = :id
+					group by TIPIFICACION
+					order by sum(cant_interac) desc",
+					"fields" => [
+						"tipificacion" => ["label" => "TIPO"],
+						"interacciones" => [
+							"label" => "# INTERACCIONES",
+							"class" => "interaccion-number",
+							"sub_table" => ["plano" => "plano", "tipificacion" => "tipificacion"]
+						],
+					],
+				]
+			]
+		];
+		$this->subTableByDistribucion = [
+			"4" => [
+				"interacciones" => [
+					"sql" => "SELECT tipificacion, S_reason_3 tipo, plano, sum(cant_interac) interacciones
+					from   fija_interact_planos
+					where  mes = (SELECT max(mes) from fija_interact_planos)
+					[str_filters]
+					group by tipificacion, S_reason_3, plano
+					order by sum(cant_interac) desc",
+					"fields" => [
+						"tipo" => ["label" => "TIPO"],
+						"interacciones" => ["label" => "# INTERACCIONES"],
+					],
+				]
+			]
+		];
+    }
+
+	private function get_query_by_distribucion($distribucion_id){
+		return $this->query_by_distribucion[$distribucion_id];
+	}
+
+	private function get_query_by_distribucion_2($distribucion_id){
+		return $this->query_by_distribucion_2[$distribucion_id];
+	}
+
+	private function getExtraGraphConfig($distribucion, $kpi_id)
+	{
+		if(array_key_exists($distribucion, $this->graphQueryByDistribucion)){
+			if(array_key_exists($kpi_id, $this->graphQueryByDistribucion[$distribucion])){
+				$config = $this->graphQueryByDistribucion[$distribucion][$kpi_id];
+				return json_decode(json_encode($config));
+			}
+		}
+		return null;
+	}
+
+	private function getTableConfig($distribucion, $kpi_id)
+	{
+		if(array_key_exists($distribucion, $this->tableByDistribucion)){
+			if(array_key_exists($kpi_id, $this->tableByDistribucion[$distribucion])){
+				$config = $this->tableByDistribucion[$distribucion][$kpi_id];
+				return json_decode(json_encode($config));
+			}
+		}
+		return null;
+	}
+
+	private function getSubTableConfig($distribucion, $subField)
+	{
+		if(array_key_exists($distribucion, $this->subTableByDistribucion)){
+			if(array_key_exists($subField, $this->subTableByDistribucion[$distribucion])){
+				$config = $this->subTableByDistribucion[$distribucion][$subField];
+				return json_decode(json_encode($config));
+			}
+		}
+		return null;
+	}
+
+	private function mapFilters($filters){
+		$map_operators = [
+			'eq' => '=',
+			'in' => 'in',
+			'cn' => 'like',
+			'>=' => '>=',
+			'<=' => '<='
+		];
+		
+		$formated_filters = [];
+		foreach($filters as $filter){
+			$is_valid = true;
+			$filter_parts = explode(".", rawurldecode($filter));
+			if(!array_key_exists($filter_parts[1], $map_operators)){
+				$is_valid = false;
+			}
+			if($is_valid){
+				$formated_filters[] = [
+					'field' => $filter_parts[0],
+					'operator' => $filter_parts[1],
+					//'operator_' => $map_operators[$filter_parts[1]],
+					'value' => $filter_parts[2],
+				];
+			}
+		}
+		return $formated_filters;
+	}
+
+	private function mapFormatedFiltersFields($filters, $distribucion)
+	{
+		for ($i=0; $i < count($filters); $i++) { 
+			$field = $filters[$i]["field"];
+			if(array_key_exists($field, $this->map_filter_by_distribucion[$distribucion])){
+				$field = $this->map_filter_by_distribucion[$distribucion][$field];
+			}
+			$filters[$i]["field"] = $field;
+		}
+		return $filters;
+	}
+
+	private function mapFiltersToSql($formated_filters){
+		$operator_templates = [
+			'eq' => '[field] = [value]',
+			'in' => '[field] in ([value])',
+			'cn' => "[field] like '%'||[value]||'%'",
+			'>=' => '[field] >= [value]',
+			'<=' => '[field] <= [value]'
+		];
+
+		$str_filters = [];
+		$value_binds = [];
+		foreach($formated_filters as $filter){
+			$str_filters[] = str_replace(["[field]", "[value]"], [$filter['field'], '?'], $operator_templates[$filter['operator']]);
+			$value_binds[] = $filter['value'];
+		}
+		$str_filters = implode(" AND ", $str_filters);
+		return ['sql'=> $str_filters, 'binds' => $value_binds];
+	}
+
+    public function index($id_tracing)
+    {
+        
+        $tracingID = $id_tracing;
+        $menuID = "6748";
+        $title = "";
+        $id_profile = null;
+        $roles = backpack_user()->roles;
+        if(count($roles) > 1){
+            $id_profile = $roles[0]->perfil;
+        }
+        $trac_title = $this->configRepository->findTitleByIdTracingAndModuleType($id_tracing, (int) $menuID);
+
+        if($trac_title !== null){
+            $title = "{$trac_title->main_module} | {$trac_title->module} | {$trac_title->module_type}";
+        }
+
+        $anio = DB::select("select anio, MAX(semana) max_semana from FIJA_PLANOS_KPIS group by anio order by anio desc");
+
+		$planoUrl = "map_" . $tracingID . "_" . $menuID;
+
+        $kpis = $this->kpi_config;
+        $kpis = json_decode(json_encode($kpis));
+        $kpis = array_merge(array_filter($kpis, function($row) use ($id_profile){
+            return ((int) $id_profile === 81 && in_array($row->ID, [1,2,6,7,8,9])) || (int) $id_profile !== 81;
+        }), []);
+
+        $dptoList = $this->executeProcedure("BEGIN PSO_OSSPORTAL.SP_GET_UBGDPTO(:resultado); END;");
+
+		$competencias = DB::select("select operador from (
+		select operador, sum(muestras_total) muestras from fijaplanoscompetencia
+		where upper(operador) not like '%CLARO%'
+		group by operador
+		) order by muestras desc");
+
+		$detailFieldsByDistribucion = $this->detailFieldsByDistribucion;
+        $detailFieldsByDistribucion = json_decode(json_encode($detailFieldsByDistribucion));
+
+        return view("backpack::mapFijaCoverage", compact("tracingID", "menuID", "title", "anio", "planoUrl", "kpis", "dptoList", "competencias", "detailFieldsByDistribucion"));
+    }
+
+	public function get_semana_by_anio($anio)
+	{
+		$response = DB::select("select semana from FIJA_PLANOS_KPIS where anio = ? group by semana order by semana desc", [$anio]);
+		return response()->json($response);
+	}
+
+	public function get_data_fija(Request $request)
+	{
+		$response = $this->_get_data_fija([
+			"distribucion" => $request->post("distribucion"),
+			"filter" => $request->post("filter"),
+		]);
+		return response()->json($response);
+	}
+
+	private function _get_data_fija($options = [])
+    {
+		$distribucion = $options["distribucion"];
+		$filters = $options["filter"];
+		/*if($this->input->post('distribucion') !== null){
+			$distribucion = $this->input->post('distribucion');
+			$filters = $this->input->post('filter');
+		}else{
+			$distribucion = $options['distribucion'];
+			$filters = $options['filter'];
+		}*/
+		$filters = $filters === null ? [] : $filters;
+
+		$formated_filters = $this->mapFilters($filters);
+		$formated_filters = $this->mapFormatedFiltersFields($formated_filters, $distribucion);
+		$str_filters = $this->mapFiltersToSql($formated_filters);
+		if(strlen($str_filters['sql']) > 0){
+			$str_filters['sql'] = " WHERE ".$str_filters['sql'];
+		}
+
+		$has_semana = false;
+		if(str_contains(strtolower($str_filters['sql']), 'semana')){
+			$has_semana = true;
+		}
+        
+        $query = "";
+        if(array_key_exists($distribucion, $this->query_by_distribucion)){
+			if($has_semana === true){
+				$query = $this->get_query_by_distribucion_2($distribucion);
+			}else{
+				$query = $this->get_query_by_distribucion($distribucion);
+			}
+        }else{
+            $query = $this->get_query_by_distribucion('4');
+        }
+		$query = str_replace("[str_filters]", $str_filters['sql'], $query);
+		$query = "SELECT * FROM ($query) ORDER BY RESULTTIME";
+
+		$query_binds = $str_filters['binds'];
+        $list = DB::select($query, $query_binds);
+		// echo json_encode($list);
+		return $list;
+    }
+
+
+	public function get_cobertura_otros(Request $request)
+    {
+        $anio = $request->post('anio');
+		$semana = $request->post('semana');
+		$distribucion = $request->post('distribucion');
+		$cobertura_otro = $request->post('cobertura_otro');
+
+		$filters = ["anio.eq.{$anio}", "semana.eq.{$semana}"];
+		$formated_filters = $this->mapFilters($filters);
+		$str_filters = $this->mapFiltersToSql($formated_filters);
+		if(strlen($str_filters['sql']) > 0){
+			$str_filters['sql'] = " WHERE ".$str_filters['sql'];
+		}
+
+        if(array_key_exists($distribucion, $this->query_cob_otros_by_distribucion)){
+			$query = $this->query_cob_otros_by_distribucion[$distribucion];
+			$query = str_replace("[str_filters]", $str_filters['sql'], $query);
+			$query = $query." WHERE grupo = ?";
+
+			$query_binds = array_merge($str_filters['binds'], [$cobertura_otro]);
+
+			$list = DB::select(DB::raw($query), $query_binds);
+			return response()->json(['data' => $list, 'query' => $query, 'binds' => $query_binds]);
+		};
+		return response()->json(['data' => []]);
+    }
+
+	public function get_cobertura_otros_geojson(Request $request)
+	{
+		$distribucion = $request->post('distribucion');
+		$cobertura_otro = $request->get('cobertura_otro');
+		$query = "SELECT NOMBRE, GEOMETRY FROM PSO_DATA_FIJA_COB_OTROS WHERE GRUPO=? AND GEOMETRY IS NOT NULL";
+		$list = DB::select(DB::raw($query), [$cobertura_otro]);
+		$geojson = ["type" => "FeatureCollection", "features" => []];
+		foreach($list as $row){
+			$geojson['features'][] = [
+				"type" => "Feature",
+				"properties" => ["nombre" => $row->nombre],
+				"geometry" => json_decode($row->geometry),
+			];
+		}
+		//var_dump($geojson);
+		//header("Content-Type: application/json");
+		return response()->json($geojson);
+	}
+
+	public function get_data_fija_by_name(Request $request, $distribucion_id, $kpi_id)
+	{
+		$anio = $request->post('anio');
+		$semana = $request->post('semana');
+		//$name = rawurldecode($name);
+		$filters = [];
+		if(!in_array($anio, ['0', null])){
+			$filters[] = "anio.eq.{$anio}";
+		}
+		if(!in_array($semana, ['0', null])){
+			$filters[] = "semana.eq.{$semana}";
+		}
+		
+		$filters = $request->post('filter') !== null ? array_merge($filters, $request->post('filter')) : $filters;
+
+		$formated_filters = $this->mapFilters($filters);
+		$formated_filters = $this->mapFormatedFiltersFields($formated_filters, $distribucion_id);
+		$str_filters = $this->mapFiltersToSql($formated_filters);
+		if(strlen($str_filters['sql']) > 0){
+			$str_filters['sql'] = " WHERE ".$str_filters['sql'];
+		}
+
+		$query = "";
+        if(array_key_exists($distribucion_id, $this->query_by_distribucion)){
+            $query = $this->get_query_by_distribucion($distribucion_id);
+        }else{
+            $query = $this->get_query_by_distribucion('4');
+        }
+		if(array_key_exists($distribucion_id, $this->detailFieldsByDistribucion)){
+			$str_fields = [];
+			foreach($this->detailFieldsByDistribucion[$distribucion_id] as $name => $row){
+				$str_fields[] = $name;
+			}
+			$str_fields = implode(", ", $str_fields);
+			$query = "SELECT {$str_fields} FROM ($query)";
+		}
+		$query = str_replace("[str_filters]", $str_filters['sql'], $query);
+
+		$query_binds = $str_filters['binds'];
+
+		if($distribucion_id == 4){
+			
+			$list = $this->executeProcedure("BEGIN PSO_OSSPORTAL.SP_GET_PLANO_VALID_OVERLAP(:P_ANIO,:P_SEMANA,:P_PLANO,:resultado); END;",[
+				"P_ANIO" => ["value" => $query_binds[0], "type" => ODB::INTEGER],
+				"P_SEMANA" => ["value" => $query_binds[1], "type" => ODB::INTEGER],
+				"P_PLANO" => ["value" => $query_binds[2], "type" => ODB::CHAR],
+				"resultado" => ["type" => ODB::CURSOR],
+			]);
+
+			foreach($list as $index => $row){
+				$list[$index] = array_change_key_case(array_map('strtolower', $list[$index]), CASE_LOWER);
+				foreach($row as $field => $value){
+					if(is_numeric($value) && str_contains($field, "kpi_")){
+						$list[$index][$field] = (float) $row[$field];
+					}
+				}
+			}
+
+		}else{
+
+			$list2 = DB::select(DB::raw($query), $query_binds);
+
+			foreach($list as $index => $row){
+				foreach($row as $field => $value){
+					$field = strtolower($field);
+					if(is_numeric($value) && str_contains($field, "kpi_")){
+						$list[$index]->{$field} = (float) $row->{$field};					
+					}
+				}
+			}
+		}
+		
+		return response()->json($list);
+	}
+
+	public function exportDataFija(Request $request)
+	{
+		$options = [
+			'distribucion' => $request->post('distribucion'),
+			'filter' => $request->post('filter')
+		];
+		if(!is_array($options["filter"])){
+			$kpis_id = [];
+		}
+		$kpis_id = $request->post('kpis_id');
+		if(!is_array($kpis_id)){
+			$kpis_id = [];
+		}
+
+		$str_fields = [];
+		foreach($this->detailFieldsByDistribucion[$options['distribucion']] as $name => $row){
+			$str_fields[] = $name;
+		}
+		$str_fields = implode(", ", $str_fields);
+		// $str_fields = $this->fields_by_distribucion[$options['distribucion']];
+		$str_fields = str_replace(["\t","\n", "\r", " "], ["","","",""], strtolower($str_fields));
+		$fields = explode(",", $str_fields);
+		$data = $this->_get_data_fija($options);
+		
+
+		$headers = [];
+
+		$all_kpi_names = [];
+		$kpi_names = [];
+		$kpi_config_by_name = [];
+		foreach($this->kpi_config as $row){
+			$all_kpi_names[] = $row['NAME'];
+			if(in_array($row['ID'], $kpis_id)){
+				$kpi_names[] = $row['NAME'];
+			}
+			$kpi_config_by_name[$row['NAME']] = $row;
+		}
+
+		foreach ($fields as $value) {
+			$label = $value;
+			if(array_key_exists($value, $kpi_config_by_name)){
+				$label = $kpi_config_by_name[$value]["LABEL"];
+			}
+			$headers[$value] = ["label" => $label];
+		}
+
+		$export = app(\AMovil\Shared\Exports\Domain\ExportService::class);
+		$export->loadData($headers, $data);
+		$content = $export->getWriter(WriterType::XLSX)->getOutput();
+		$fileName = 'cobertura_fija_'.(new DateTime())->format('Ymd').'.xlsx';
+		return response($content, 200, [
+			"Content-Type" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			"Content-Disposition" => 'attachment;filename="'.$fileName.'"'
+		]);
+	}
+
+	public function getDataUbgProvByDptoCode($dptoCode)
+	{
+		$listDpto = $this->executeProcedure("BEGIN PSO_OSSPORTAL.SP_GET_UBGPROVBYDPTOCODE(:dptoCode, :resultado); END;", [
+			"dptoCode" => ["value" => $dptoCode, "type" => ODB::CHAR],
+			"resultado" => ["type" => ODB::CURSOR],
+		]);
+		echo json_encode($listDpto);
+	}
+
+	public function getDataUbgDistByProvCode($provCode)
+	{
+		$listProv = $this->executeProcedure("BEGIN PSO_OSSPORTAL.SP_GET_UBGDISTBYPROVCODE(:provcode, :resultado); END;", [
+			"provcode" => ["value" => $provCode, "type" => ODB::CHAR],
+			"resultado" => ["type" => ODB::CURSOR],
+		]);
+		echo json_encode($listProv);
+	}
+
+	public function getExtraGraphData(Request $resquest)
+	{
+		$distribucion = $resquest->get("distribucion");
+		$kpi_id = $resquest->get("kpi_id");
+		$plano = $resquest->get("plano");
+		try {
+			$config = $this->getExtraGraphConfig($distribucion, $kpi_id);
+			if($config === null){
+				throw new \Exception("Error en la configuracion de la grafica");
+			}
+			$data = DB::select(DB::raw($config->sql), ["plano" => $plano]);
+			$response = [
+				"seriesConfig" => $config->seriesConfig,
+				"result_time" => $config->result_time,
+				"title" => $config->title,
+				"data" => $data,
+			];
+			return response()->json($response);
+		} catch (\Throwable $th) {
+			throw $th;
+			return response()->json([
+				"message" => $th->getMessage()
+			], 500);
+		}
+	}
+
+	public function getTableData(Request $resquest)
+	{
+		$distribucion = $resquest->get("distribucion");
+		$kpi_id = $resquest->get("kpi_id");
+		$id = $resquest->get("id");
+
+		try {
+			$config = $this->getTableConfig($distribucion, $kpi_id);
+			if($config === null){
+				throw new \Exception("Error en la configuracion de la tabla");
+			}
+			$data = DB::select(DB::raw($config->sql), ["id" => $id]);
+			$response = [
+				"fields" => $config->fields,
+				"data" => $data,
+			];
+			return response()->json($response);
+		} catch (\Throwable $th) {
+			throw $th;
+			return response()->json([
+				"message" => $th->getMessage()
+			], 500);
+		}
+	}
+
+	public function getSubTableData(Request $request)
+	{
+		$distribucion = $request->get("distribucion");
+		$kpi_id = $request->get("subField");
+		$filters = $request->get('filter', []);
+		if(!is_array($filters)){
+			$filters = [$filters];
+		}
+		$formated_filters = $this->mapFilters($filters);
+		$str_filters = $this->mapFiltersToSql($formated_filters);
+
+		try {
+			$config = $this->getSubTableConfig($distribucion, $kpi_id);
+			if($config === null){
+				throw new \Exception("Error en la configuracion de la tabla");
+			}
+			if(strlen($str_filters['sql']) > 0){
+				if(str_contains($config->sql, "where")){
+					$str_filters['sql'] = " and ".$str_filters['sql'];
+				}else{
+					$str_filters['sql'] = " where ".$str_filters['sql'];
+				}
+			}
+			$query = str_replace("[str_filters]", $str_filters['sql'], $config->sql);
+			$query_binds = $str_filters['binds'];
+			$data = DB::select(DB::raw($query), $query_binds);
+			$response = [
+				"fields" => $config->fields,
+				"data" => $data,
+			];
+			return response()->json($response);
+		} catch (\Throwable $th) {
+			throw $th;
+			return response()->json([
+				"message" => $th->getMessage()
+			], 500);
+		}
+	}
+
+    public function executeProcedure($sql, $params = [])
+    {
+        $data = DB::transaction(function($conn) use ($sql, $params){
+            $pdo = $conn->getPdo();
+            $stmt = $pdo->prepare($sql);
+
+			if(count($params) > 0){
+				foreach ($params as $name => $row) {
+					if(!in_array($name, ["resultado"])){
+						$stmt->bindParam(':'.$name, $row["value"], $row["type"]);	
+					}else{
+						$stmt->bindParam(':resultado', $lista, ODB::CURSOR);
+					}
+				}
+			}else{
+				$stmt->bindParam(':resultado', $lista, ODB::CURSOR);
+			}
+
+
+            $stmt->execute();
+
+            oci_execute($lista, OCI_DEFAULT);
+            oci_fetch_all($lista, $array, 0, -1, OCI_FETCHSTATEMENT_BY_ROW + OCI_ASSOC );
+            oci_free_cursor($lista);
+
+            return $array;
+        });
+
+        return $data;
+    }
+}

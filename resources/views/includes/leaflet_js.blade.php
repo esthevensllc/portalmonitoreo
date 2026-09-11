@@ -1,0 +1,1 @@
+<script src="{{ asset('libs/leaflet/1.9.4/leaflet.js') }}"></script>
