@@ -1,0 +1,143 @@
+a {
+    color: #750086;
+    text-decoration: none;
+    background-color: transparent;
+}
+
+.page-item.active .page-link {
+    z-index: 1;
+    color: #FFFFFF;
+    background-color: #750086;
+    border-color: #750086;
+}
+
+.app-header {
+    border-bottom: 1px solid rgba(0, 40, 100, 0.12);
+    background-color: #750086 !important;
+}
+
+.app-header.bg-light .navbar-brand {
+    width: 200px;
+    padding: 0 1rem;
+    color: #ffffff;
+    opacity: 1;
+}
+
+header .text-capitalize{
+    color: white;
+    font-weight: bold;
+}
+
+.sidebar.sidebar-pills .nav-link.active,
+.sidebar.sidebar-pills .nav-link:hover {
+    color: #750086 !important;
+    /*font-weight: 500;*/
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.sidebar.sidebar-pills .nav-link.active .nav-icon,
+.sidebar.sidebar-pills .nav-link:hover .nav-icon {
+    color: #750086 !important;
+}
+
+.sidebar .nav-item {
+    font-size: 14px;
+}
+
+.app-header .navbar-brand {
+    color: #FFFFFF;
+}
+
+@media (min-width: 991.99px){
+    .app-header .navbar-brand {
+        color: #FFFFFF;
+        margin: 0 10px;
+    }
+}
+
+.dataTables_wrapper .dataTables_filter input:focus,
+.dataTables_wrapper .dataTables_length select:focus,
+.form-control:focus {
+    border-color: #750086;
+    box-shadow: 0 0 0 2px #fbdcdc;
+}
+
+.dataTables_scroll{
+    font-size: 0.8rem;
+}
+
+.jumbotron .display-3{
+    text-align: center;
+    font-weight: 600;
+    color: #A32121;
+}
+
+.jumbotron p{
+    font-size: 1.6em;
+    color: #B52020;
+    text-align: center;
+}
+
+/* .jumbotron .btn.btn-danger{
+    background-color: transparent;
+    color: #991515;
+}
+
+.jumbotron .btn.btn-danger:hover{
+    background-color: #df4759;
+    color: white;
+} */
+
+.card{
+    background: #FFF;
+    border-radius: 10px;
+    z-index: 1;
+}
+#legend.card-body{
+    padding: 0!important;
+}
+#legend.card-body td{
+    padding: 0.3rem 0.75rem!important;
+}
+.card .close{
+    padding: 10px;
+}
+.card.mb-3{
+    position: absolute;
+    margin: 225px 40px;
+    max-height: 500px;
+    overflow-y: scroll;
+    display: none;
+    opacity: .9;
+}
+.card.mb-4{
+    position: absolute;
+    top: 605px;
+    right: 40px;
+    opacity: .7;
+    max-height: 190px;
+    font-size: 12px;
+    text-align: center;
+}
+.card.mb-5{
+    position: absolute;
+    top: 285px;
+    right: 40px;
+    opacity: .7;
+    max-height: 405px;
+    font-size: 12px;
+    text-align: center;
+}
+.card.mb-4 label{
+    width: 10px;
+    height: 10px;
+}
+.card.mb-5 label{
+    border-radius: 19px;
+    width: 10px;
+    height: 10px;
+}
+
+#colExport .btn{
+    cursor: pointer;
+}   

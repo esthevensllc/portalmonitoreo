@@ -1,0 +1,19 @@
+.app_filter{
+    border: 1px solid #6d6d6d;
+    border-radius: 2.5px;
+    margin-bottom: .25rem!important;
+}
+
+.app_filter a{
+    color: #1b2a4e !important;
+    font-size: 12px !important;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-right: 5px;
+    padding-left: 5px;
+}
+
+#filterVisibility .dropdown-menu{
+    max-height: 400px;
+    overflow-y: auto;
+}
