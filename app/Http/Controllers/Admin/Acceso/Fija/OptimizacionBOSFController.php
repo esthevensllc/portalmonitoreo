@@ -97,6 +97,13 @@ class OptimizacionBOSFController extends BaseListController
             return "<button class='btn btn-link btn-sm btn-bosf-view' data-column='cantidad_trabajos' data-plano='{$entry->plano}' data-fecha='{$formatDate}'>{$entry->cantidad_trabajos}</button>";
         };
 
+        $this->fields["crq_relacionada"]["type"] = "closure";
+        $this->fields["crq_relacionada"]["function"] = function($entry){
+            $date = new \DateTime($entry->fecha_de_caida);
+            $formatDate = $date->format('d/m/Y');
+            return "<button class='btn btn-link btn-sm btn-bosf-view' data-column='crq_relacionada' data-plano='{$entry->plano}' data-fecha='{$formatDate}'>{$entry->crq_relacionada}</button>";
+        };
+
         $this->route = config('backpack.base.route_prefix')."/optimizacion-bosf/{$this->id_tracing}";
         $str_date = (new DateTime())->format("YmdHis");
         $this->exportOptions = [

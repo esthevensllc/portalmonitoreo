@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\ListaDiariaTwampExport;
 use App\Http\Requests\ACCESO_4G_Movil_DesempeñoRequest;
 use App\Models\Desempenio\SharedModel;
 use App\Models\PSO_Type;
@@ -9,6 +10,8 @@ use Backpack\CRUD\app\Http\Controllers\CrudController;
 use Illuminate\Http\Request;
 use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Excel;
+use Maatwebsite\Excel\Facades\Excel as ExcelFacade;
 
 class DesempenioController extends CrudController
 {
@@ -223,6 +226,14 @@ class DesempenioController extends CrudController
             'values' => $sectnames,
             'selected' => $this->section_id
         ])->to('before_content');
+
+        if ((string) $this->id_tracing === '22') {
+            \Backpack\CRUD\app\Library\Widget::add([
+                'type' => 'view',
+                'view' => 'backpack::base.inc.widgets.lista_diaria',
+            ])->to('before_content');
+        }
+
         // dd(["secids" => $this->crud->model->getCeldas($this->idtype_main), "sectnames" => $sectnames]);
 
         \Backpack\CRUD\app\Library\Widget::add([
@@ -264,6 +275,26 @@ class DesempenioController extends CrudController
     protected function setupUpdateOperation()
     {
         $this->setupCreateOperation();
+    }
+
+    public function downloadListaDiaria($format)
+    {
+        $format = strtolower($format);
+
+        if (!in_array($format, ['xlsx', 'csv'], true)) {
+            abort(404);
+        }
+
+        $date = DB::selectOne("SELECT TO_CHAR(TRUNC(SYSDATE) - 1, 'YYYYMMDD') AS REPORT_DATE FROM DUAL");
+        $reportDate = $date->report_date ?? $date->REPORT_DATE ?? date('Ymd', strtotime('-1 day'));
+        $fileName = "LISTA_DIARIA_TWAMP_{$reportDate}.{$format}";
+        $writerType = $format === 'csv' ? Excel::CSV : Excel::XLSX;
+
+        return ExcelFacade::download(
+            new ListaDiariaTwampExport(),
+            $fileName,
+            $writerType
+        );
     }
 
     private function getExtraFilterBy($id_tracing, $rol_id)

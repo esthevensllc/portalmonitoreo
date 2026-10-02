@@ -69,6 +69,12 @@ Route::group([
         Route::get('poligonos/export/{typeMapSeg}/{tracingID}/{menuID}/{mapGroupSel}/{mapGroupUnit}', 'MapController@exportPoli');
     });
     
+    Route::group(['middleware' => ['check.permission'],'tracingId' => 22, 'menuId' => '16'], function () {
+        Route::get('desemp/22/16/lista-diaria/{format}', 'DesempenioController@downloadListaDiaria')
+            ->where('format', 'xlsx|csv')
+            ->name('desemp.lista-diaria');
+    });
+
     Route::group(['middleware' => ['check.permission'], 'menuId' => '16'], function () {
         Route::crud('desemp/{tracingID}/{menuID}/{sectID?}', 'DesempenioController');
     });
