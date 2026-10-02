@@ -101,7 +101,9 @@ class OptimizacionBOSFController extends BaseListController
         $this->fields["crq_relacionada"]["function"] = function($entry){
             $date = new \DateTime($entry->fecha_de_caida);
             $formatDate = $date->format('d/m/Y');
-            return "<button class='btn btn-link btn-sm btn-bosf-view' data-column='crq_relacionada' data-plano='{$entry->plano}' data-fecha='{$formatDate}'>{$entry->crq_relacionada}</button>";
+            $crq = e($entry->crq_relacionada);
+            // Conserva data-plano con la CRQ para compatibilidad con el popup existente.
+            return "<button class='btn btn-link btn-sm btn-bosf-view' data-column='crq_relacionada' data-id='{$crq}' data-plano='{$crq}' data-fecha='{$formatDate}'>{$crq}</button>";
         };
 
         $this->route = config('backpack.base.route_prefix')."/optimizacion-bosf/{$this->id_tracing}";
@@ -173,6 +175,11 @@ class OptimizacionBOSFController extends BaseListController
         $columna = $request->get("columna");             
 
         switch($columna){
+            case 'crq_relacionada':
+                $procedure = "PK_FIJA_BOSF.SP_FIJA_CRQ_BOSF";
+                $crq = $request->get("id", $request->get("plano"));
+                $fecha = $request->get("fecha");
+                return $this->getDetalleCrq($procedure, $crq, $fecha, $columna);
             case 'reclamos_del_dia':
                 $procedure = "PK_FIJA_BOSF.SP_FIJA_RECLAMOS_BOSF";
                 $plano = $request->get("plano");
@@ -228,6 +235,15 @@ class OptimizacionBOSFController extends BaseListController
                 return $this->getDetalleIncidenciaFecha($procedure, $incidencia, $fecha, $columna);
                 break; 
         }
+    }
+
+    public function getDetalleCrq($procedure, $crq, $fecha, $columna){
+        $procedure = "begin {$procedure}(:id, :resultado); end;";
+        $data = $this->executeProcedure($procedure, [
+            "id" => ["value" => $crq, "type" => PDO::PARAM_STR],
+            "resultado" => [],
+        ]);
+        return [$columna, $crq, $fecha, $data];
     }
 
     public function getDetallePlanoFecha($procedure, $plano, $fecha, $columna){
